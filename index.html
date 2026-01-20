@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K.C.M MULTI-CUSTOM V19 - ULTIMATE</title>
+    <style>
+        :root { 
+            --neon-blue: #1e90ff; --neon-green: #00ff88; --neon-red: #ff3355; 
+            --gale: #f0b90b; --bg-dark: #05070a; --royal-blue: #0047AB;
+        }
+        body { background: var(--bg-dark); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; }
+        .logo { font-size: 22px; font-weight: 900; color: #fff; margin: 10px 0; }
+        .logo span { color: var(--neon-blue); font-style: italic; }
+        .painel-global { background: linear-gradient(180deg, #111418 0%, #05070a 100%); border: 2px solid var(--royal-blue); border-radius: 15px; width: 95%; max-width: 600px; padding: 15px; margin-bottom: 20px; box-shadow: 0 0 20px rgba(0,71,171,0.3); }
+        .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center; }
+        .stat-label { font-size: 9px; color: #888; text-transform: uppercase; margin-bottom: 4px; }
+        .stat-val { font-size: 18px; font-weight: bold; }
+        #ranking-container { width: 95%; max-width: 600px; background: #0d0f12; border-radius: 10px; padding: 10px; margin-bottom: 20px; border: 1px solid #1e2228; font-size: 11px; }
+        .rank-item { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #222; }
+        .grid-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; width: 100%; max-width: 600px; }
+        .card { background: #111418; border-radius: 20px; padding: 12px; border: 1px solid #1e2228; position: relative; }
+        .thermometer-wrap { width: 100%; height: 8px; background: #222; border-radius: 4px; margin: 8px 0; overflow: hidden; border: 1px solid #333; }
+        .thermometer-fill { height: 100%; width: 50%; transition: 0.3s cubic-bezier(0.17, 0.67, 0.83, 0.67); background: linear-gradient(90deg, #ff3355, #f0b90b, #00ff88); }
+        .status-box { width: 100%; min-height: 50px; background: #000; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid #333; padding: 4px; }
+        .timer-large { font-size: 38px; font-weight: bold; text-align: center; color: #fff; }
+        .select-ativo { background: #0d0f12; color: #fff; border: 1px solid #444; font-size: 11px; width: 100%; padding: 6px; margin-top: 10px; border-radius: 5px; }
+        .small-txt { font-size: 8px; color: #aaa; text-transform: uppercase; }
+    </style>
+</head>
+<body>
+
+    <div class="logo">K.C<span>📈</span>M MULTI-CUSTOM V19</div>
+
+    <div class="painel-global">
+        <div class="stats-row">
+            <div><span class="stat-label">Análises</span><span class="stat-val" id="g-analises">0</span></div>
+            <div><span class="stat-label">Wins Direto</span><span class="stat-val" style="color:var(--neon-green)" id="g-direto">0</span></div>
+            <div><span class="stat-label">Wins Gales</span><span class="stat-val" style="color:var(--gale)" id="g-gales">0</span></div>
+            <div><span class="stat-label">Loss Total</span><span class="stat-val" style="color:var(--neon-red)" id="g-loss">0</span></div>
+        </div>
+        <div style="text-align: center; margin-top: 10px; border-top: 1px solid #222; padding-top: 5px;">
+            <span class="stat-label">EFICIÊNCIA REAL: <b id="g-precisao" style="color:white">0%</b></span>
+        </div>
+    </div>
+
+    <div id="ranking-container">
+        <div style="color: var(--neon-blue); font-weight: bold; margin-bottom: 5px;">🏆 RANKING DE PERFORMANCE (TOP ATIVOS)</div>
+        <div id="ranking-list">Sincronizando mercado...</div>
+    </div>
+
+    <div class="grid-container" id="grid"></div>
+
+<script>
+    const TG_TOKEN = "8427077212:AAEiL_3_D_-fukuaR95V3FqoYYyHvdCHmEI"; 
+    const TG_CHAT_ID = "-1003355965894"; 
+    const LINK_CORRETORA = "https://track.deriv.com/_S_W1N_"; 
+
+    const LISTA_ATIVOS = `
+        <optgroup label="🌍 FOREX (DERIV & QUOTEX)">
+            <option value="frxEURUSD">EUR/USD</option>
+            <option value="frxGBPUSD">GBP/USD</option>
+            <option value="frxUSDJPY">USD/JPY</option>
+            <option value="frxAUDUSD">AUD/USD</option>
+            <option value="frxUSDCAD">USD/CAD</option>
+            <option value="frxUSDCHF">USD/CHF</option>
+            <option value="frxEURGBP">EUR/GBP</option>
+            <option value="frxEURJPY">EUR/JPY</option>
+            <option value="frxGBPJPY">GBP/JPY</option>
+            <option value="frxAUDJPY">AUD/JPY</option>
+            <option value="frxXAUUSD">OURO (XAU/USD)</option>
+        </optgroup>
+        <optgroup label="₿ CRIPTOMOEDAS (24/7)">
+            <option value="cryBTCUSD">BITCOIN (BTC)</option>
+            <option value="cryETHUSD">ETHEREUM (ETH)</option>
+            <option value="cryLTCUSD">LITECOIN (LTC)</option>
+            <option value="cryXRPUSD">RIPPLE (XRP)</option>
+        </optgroup>
+        <optgroup label="🔥 SINTÉTICOS (APENAS DERIV)">
+            <option value="1HZ10V">Volatility 10 (1s)</option>
+            <option value="1HZ25V">Volatility 25 (1s)</option>
+            <option value="1HZ50V">Volatility 50 (1s)</option>
+            <option value="1HZ75V">Volatility 75 (1s)</option>
+            <option value="1HZ100V">Volatility 100 (1s)</option>
+            <option value="R_10">Volatility 10</option>
+            <option value="R_25">Volatility 25</option>
+            <option value="R_50">Volatility 50</option>
+            <option value="R_75">Volatility 75</option>
+            <option value="R_100">Volatility 100</option>
+            <option value="BOOM500">Boom 500</option>
+            <option value="CRASH500">Crash 500</option>
+        </optgroup>`;
+
+    let statsGerais = { analises: 0, winDireto: 0, winGales: 0, loss: 0 };
+    let motores = {};
+
+    function formatarHora(data) {
+        return data.toTimeString().split(' ')[0];
+    }
+
+    function calcularFim(data) {
+        let fim = new Date(data.getTime() + 60000);
+        return formatarHora(fim);
+    }
+
+    function enviarTelegram(msg, comBotao = true) {
+        let payload = { chat_id: TG_CHAT_ID, text: msg, parse_mode: "Markdown" };
+        if (comBotao) payload.reply_markup = { inline_keyboard: [[{ text: "📲 ACESSAR CORRETORA", url: LINK_CORRETORA }]] };
+        fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).catch(e => console.error("Erro Telegram:", e));
+    }
+
+    setInterval(() => {
+        let ranking = Object.values(motores).sort((a,b) => (b.wins - b.loss) - (a.wins - a.loss));
+        let melhorAtivo = ranking[0] ? ranking[0].nome : "Nenhum";
+        let msg = `📊 *RELATÓRIO DE PERFORMANCE KCM*\n\n✅ *Wins:* ${statsGerais.winDireto + statsGerais.winGales}\n❌ *Loss:* ${statsGerais.loss}\n🏆 *Melhor Ativo:* ${melhorAtivo}`;
+        enviarTelegram(msg, false);
+    }, 300000);
+
+    function criarCards() {
+        const grid = document.getElementById('grid');
+        const padrao = ['1HZ100V', 'R_100', 'frxEURUSD', 'cryBTCUSD'];
+        for (let i = 1; i <= 4; i++) {
+            const id = `card${i}`;
+            grid.innerHTML += `<div class="card"><div class="stat-label">FORÇA DO MERCADO</div><div class="thermometer-wrap"><div class="thermometer-fill" id="therm-${id}"></div></div><div class="status-box" id="status-box-${id}"><div id="status-${id}" style="font-size:10px; font-weight:bold; color:var(--neon-blue); text-align:center">ANALISANDO...</div></div><div class="timer-large" id="timer-${id}">00</div><div id="price-${id}" style="font-family:monospace; color:var(--gale); text-align:center; font-size:12px">0.0000</div><select class="select-ativo" id="select-${id}" onchange="mudarAtivo('${id}')">${LISTA_ATIVOS}</select></div>`;
+            setTimeout(() => { document.getElementById(`select-${id}`).value = padrao[i-1]; mudarAtivo(id); }, 200 * i);
+        }
+    }
+
+    function mudarAtivo(id) {
+        const select = document.getElementById(`select-${id}`);
+        const ativo = select.value, nome = select.options[select.selectedIndex].text;
+        if (motores[id]?.ws) motores[id].ws.close();
+        motores[id] = { ws: new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=1089'), nome, wins: 0, loss: 0, analises: 0, sinalPendente: null, buscandoTaxa: false, operacaoAtiva: null, galeAtual: 0, aberturaVela: 0, fechamentoAnterior: 0, forca: 50, tempoOp: 0 };
+        const m = motores[id];
+        m.ws.onopen = () => m.ws.send(JSON.stringify({ ticks: ativo }));
+        m.ws.onmessage = (msg) => {
+            const data = JSON.parse(msg.data); if (!data.tick) return;
+            const preco = data.tick.quote, agora = new Date(), segs = agora.getSeconds();
+            document.getElementById(`price-${id}`).innerText = preco.toFixed(5);
+            document.getElementById(`timer-${id}`).innerText = (60 - segs).toString().padStart(2, '0');
+            
+            if (m.aberturaVela > 0) {
+                let diff = preco - m.aberturaVela;
+                m.forca = 50 + (diff / (m.aberturaVela * 0.0002) * 20); 
+                m.forca = Math.min(98, Math.max(2, m.forca));
+                document.getElementById(`therm-${id}`).style.width = `${m.forca}%`;
+            }
+
+            if (m.buscandoTaxa && !m.operacaoAtiva) {
+                let diffVela = Math.abs(m.fechamentoAnterior - m.aberturaVela) || 0.0001;
+                let alvo = diffVela * 0.30;
+                let confirmou = (m.sinalPendente === "CALL" && preco <= (m.aberturaVela - alvo)) || (m.sinalPendente === "PUT" && preco >= (m.aberturaVela + alvo));
+                if (confirmou) {
+                    m.operacaoAtiva = m.sinalPendente; m.precoEntrada = preco; m.tempoOp = 60; m.buscandoTaxa = false;
+                    let hInicio = formatarHora(agora);
+                    let hFim = calcularFim(agora);
+                    document.getElementById(`status-${id}`).innerHTML = `<span style="color:var(--neon-green)">ENTRADA CONFIRMADA</span>`;
+                    enviarTelegram(`🚀 *ENTRADA CONFIRMADA*\n👉 *CLIQUE AGORA*\n\n💎 Ativo: ${m.nome}\n📈 Ação: ${m.operacaoAtiva === "CALL" ? "COMPRA 🟢" : "VENDA 🔴"}\n⏰ Início: ${hInicio}\n🏁 Término: ${hFim}`);
+                }
+            }
+
+            if (m.tempoOp > 0) {
+                m.tempoOp--;
+                if (m.tempoOp === 0) verificarResultado(id, preco);
+            }
+
+            if (segs === 0) {
+                m.fechamentoAnterior = preco; m.aberturaVela = preco;
+                if (m.forca >= 70) m.sinalPendente = "CALL"; else if (m.forca <= 30) m.sinalPendente = "PUT"; else m.sinalPendente = null;
+                
+                if (m.sinalPendente && !m.operacaoAtiva) {
+                    m.buscandoTaxa = true;
+                    let horaAlerta = formatarHora(agora);
+                    document.getElementById(`status-${id}`).innerHTML = `
+                        ALERTA POSSÍVEL ENTRADA<br>
+                        <span class="small-txt">AGUARDANDO CONFIRMAÇÃO PARA ENTRADA</span><br>
+                        <span style="font-size:9px">POSSÍVEL ENTRADA ÀS: ${horaAlerta}</span>`;
+                    enviarTelegram(`🔍 *BUSCANDO TAXA...*\n📊 *Ativo:* ${m.nome}\n⚡ *Direção:* ${m.sinalPendente}`, false);
+                } else if (!m.operacaoAtiva) {
+                    document.getElementById(`status-${id}`).innerHTML = "ANALISANDO...";
+                }
+            }
+        };
+    }
+
+    function verificarResultado(id, precoFinal) {
+        const m = motores[id];
+        const agora = new Date();
+        const win = (m.operacaoAtiva === "CALL" && precoFinal > m.precoEntrada) || (m.operacaoAtiva === "PUT" && precoFinal < m.precoEntrada);
+        
+        let msgRes = "";
+        if (win) {
+            if (m.galeAtual === 0) { statsGerais.winDireto++; m.analises++; } else statsGerais.winGales++;
+            m.wins++;
+            msgRes = `✅ *GREEN NO ${m.galeAtual === 0 ? 'DIRETO' : 'GALE ' + m.galeAtual}!*`;
+            m.operacaoAtiva = null; m.galeAtual = 0;
+        } else {
+            if (m.galeAtual < 2) {
+                m.galeAtual++; m.precoEntrada = precoFinal; m.tempoOp = 60;
+                let hInicioGale = formatarHora(agora);
+                let hFimGale = calcularFim(agora);
+                enviarTelegram(`🔄 *ENTRANDO NO GALE ${m.galeAtual}*\n🌍 *Ativo:* ${m.nome}\n📈 *Direção:* ${m.operacaoAtiva === "CALL" ? "COMPRA 🟢" : "VENDA 🔴"}\n⏰ Início: ${hInicioGale}\n🏁 Término: ${hFimGale}`);
+                return;
+            } else {
+                m.loss++; statsGerais.loss++; m.analises++;
+                msgRes = `❌ *LOSS FINAL NO G2*`;
+                m.operacaoAtiva = null; m.galeAtual = 0;
+            }
+        }
+
+        let globalWins = statsGerais.winDireto + statsGerais.winGales;
+        let txtPlacar = `\n\n📊 *PLACAR ATIVO:* ${m.wins}W - ${m.loss}L`;
+        txtPlacar += `\n🌍 *PLACAR GLOBAL:* ${globalWins}W - ${statsGerais.loss}L`;
+        
+        enviarTelegram(`${msgRes}\n💎 *Ativo:* ${m.nome}${txtPlacar}`);
+        atualizarRelatorios();
+    }
+
+    function atualizarRelatorios() {
+        document.getElementById('g-analises').innerText = statsGerais.analises;
+        document.getElementById('g-direto').innerText = statsGerais.winDireto;
+        document.getElementById('g-gales').innerText = statsGerais.winGales;
+        document.getElementById('g-loss').innerText = statsGerais.loss;
+        let tWins = statsGerais.winDireto + statsGerais.winGales;
+        document.getElementById('g-precisao').innerText = (statsGerais.analises > 0 ? (tWins / statsGerais.analises * 100).toFixed(1) : 0) + "%";
+        let html = "";
+        Object.values(motores).sort((a,b) => (b.wins - b.loss) - (a.wins - a.loss)).forEach((m, i) => {
+            html += `<div class="rank-item"><span>${i+1}º ${m.nome}</span><span style="color:var(--neon-green)">${m.wins} W / ${m.loss} L</span></div>`;
+        });
+        document.getElementById('ranking-list').innerHTML = html;
+    }
+    window.onload = criarCards;
+</script>
+</body>
+</html>
