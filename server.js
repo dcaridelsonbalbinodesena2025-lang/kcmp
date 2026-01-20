@@ -47,6 +47,7 @@ function iniciarMotor(cardId, ativoId, nomeAtivo) {
         forca: 50,
         aberturaVela: 0,
         fechamentoAnterior: 0,
+        corVelaAnterior: null, // Nova lógica Raiane
         sinalPendente: null,
         buscandoTaxa: false,
         operacaoAtiva: null,
@@ -68,17 +69,23 @@ function iniciarMotor(cardId, ativoId, nomeAtivo) {
         const segs = agora.getSeconds();
         m.preco = preco.toFixed(5);
         
-        // CÁLCULO DE FORÇA (REGRA 1: MAIS EXIGENTE)
         if (m.aberturaVela > 0) {
             let diff = preco - m.aberturaVela;
             m.forca = 50 + (diff / (m.aberturaVela * 0.0002) * 20);
             m.forca = Math.min(98, Math.max(2, m.forca));
         }
 
-        // 1. ALERTA (REGRA 1: SÓ ACIMA DE 80 OU ABAIXO DE 20)
+        // 1. ALERTA (AOS 00 SEGUNDOS - JUNÇÃO REGRA 1)
         if (segs === 0) {
+            // Define a cor da vela que acabou de fechar (Lógica Raiane)
+            if (m.fechamentoAnterior > 0) {
+                m.corVelaAnterior = (m.fechamentoAnterior > m.aberturaVela) ? "CALL" : "PUT";
+            }
+
             m.fechamentoAnterior = preco;
             m.aberturaVela = preco;
+
+            // Filtro de Força 80/20
             if (m.forca >= 80) m.sinalPendente = "CALL"; 
             else if (m.forca <= 20) m.sinalPendente = "PUT"; 
             else m.sinalPendente = null;
@@ -86,14 +93,20 @@ function iniciarMotor(cardId, ativoId, nomeAtivo) {
             if (m.sinalPendente && !m.operacaoAtiva) {
                 m.buscandoTaxa = true;
                 let hAlerta = agora.toLocaleTimeString();
-                enviarTelegram(`🔍 *REGRA 1: ALERTA DE FORÇA*\n📊 Ativo: ${m.nome}\n⚡ Direção: ${m.sinalPendente === "CALL" ? "COMPRA 🟢" : "VENDA 🔴"}\n⏰ Horário: ${hAlerta}`, false);
+                let emoji = m.sinalPendente === "CALL" ? "COMPRA 🟢" : "VENDA 🔴";
+                enviarTelegram(`🔍 *ALERTA: POSSÍVEL ENTRADA*\n📊 Ativo: ${m.nome}\n⚡ Direção: ${emoji}\n⏰ Horário: ${hAlerta}`, false);
             }
         }
 
-        // 2. CONFIRMAÇÃO
+        // 2. CONFIRMAÇÃO (TAXA DINÂMICA - JUNÇÃO INTELIGENTE)
         if (m.buscandoTaxa && !m.operacaoAtiva) {
             let diffVela = Math.abs(m.fechamentoAnterior - m.aberturaVela) || 0.0001;
-            let alvo = diffVela * 0.35; // Aumentado para 35% por segurança
+            
+            // Se a cor bate com a anterior (Fluxo Raiane), entra mais fácil (15%)
+            // Se não bate, espera a retração segura (35%)
+            let multiplicadorTaxa = (m.sinalPendente === m.corVelaAnterior) ? 0.15 : 0.35;
+            let alvo = diffVela * multiplicadorTaxa;
+
             let confirmou = (m.sinalPendente === "CALL" && preco <= (m.aberturaVela - alvo)) || 
                             (m.sinalPendente === "PUT" && preco >= (m.aberturaVela + alvo));
             
@@ -102,13 +115,16 @@ function iniciarMotor(cardId, ativoId, nomeAtivo) {
                 m.precoEntrada = preco;
                 m.tempoOp = 60;
                 m.buscandoTaxa = false;
+                m.status = "ENTRADA CONFIRMADA";
+                
                 let hI = agora.toLocaleTimeString();
                 let hF = new Date(agora.getTime() + 60000).toLocaleTimeString();
+                
                 enviarTelegram(`🚀 *ENTRADA CONFIRMADA*\n💎 Ativo: ${m.nome}\n📈 Ação: ${m.operacaoAtiva === "CALL" ? "COMPRA 🟢" : "VENDA 🔴"}\n⏰ Início: ${hI}\n🏁 Término: ${hF}`);
             }
         }
 
-        // 3. RESULTADO COM PLACAR REGRA 1
+        // 3. RESULTADO E PLACAR
         if (m.tempoOp > 0) {
             m.tempoOp--;
             if (m.tempoOp === 0) {
@@ -118,10 +134,8 @@ function iniciarMotor(cardId, ativoId, nomeAtivo) {
                 if (win) {
                     if (m.galeAtual === 0) statsGlobal.winDireto++; else statsGlobal.winGales++;
                     m.wins++;
-                    
-                    let placarRegra1 = `✅ *WIN CONFIRMADO*\n🌍 Ativo: ${m.nome}\n🎯 Tipo: ${m.galeAtual === 0 ? 'DIRETO' : 'GALE ' + m.galeAtual}\n\n📊 *PLACAR ACUMULADO:*\n🟢 VITORIAS: ${statsGlobal.winDireto + statsGlobal.winGales}\n🔴 DERROTAS: ${statsGlobal.loss}`;
-                    
-                    enviarTelegram(placarRegra1);
+                    let placar = `✅ *WIN CONFIRMADO*\n🌍 Ativo: ${m.nome}\n🎯 Tipo: ${m.galeAtual === 0 ? 'DIRETO' : 'GALE ' + m.galeAtual}\n\n📊 *PLACAR ACUMULADO:*\n🟢 VITORIAS: ${statsGlobal.winDireto + statsGlobal.winGales}\n🔴 DERROTAS: ${statsGlobal.loss}`;
+                    enviarTelegram(placar);
                     m.operacaoAtiva = null; m.galeAtual = 0; m.status = "ANALISANDO...";
                 } else if (m.galeAtual < 2) {
                     m.galeAtual++;
@@ -145,7 +159,7 @@ function iniciarMotor(cardId, ativoId, nomeAtivo) {
     motores[cardId] = m;
 }
 
-// RELATÓRIO DE PERFORMANCE (4 MINUTOS)
+// RELATÓRIO DE PERFORMANCE (A CADA 4 MINUTOS)
 function enviarRelatorioPerformance() {
     let listaRanking = Object.values(motores)
         .filter(m => m.nome !== "OFF" && m.nome !== "DESATIVADO")
@@ -176,7 +190,7 @@ function enviarRelatorioPerformance() {
 • Reds (Loss G2): ${statsGlobal.loss}
 
 🏆 *RANKING DOS ATIVOS:*
-${rankingTexto || "Sem dados ativos"}
+${rankingTexto || "Sem dados suficientes"}
 
 🔥 *EFICIÊNCIA ATUAL: ${eficienciaGeral}%*`;
 
@@ -185,6 +199,7 @@ ${rankingTexto || "Sem dados ativos"}
 
 setInterval(enviarRelatorioPerformance, 240000);
 
+// API E ROTAS
 app.get('/status', (req, res) => {
     let ativosStatus = Object.keys(motores).map(id => ({
         cardId: id,
@@ -203,6 +218,6 @@ app.post('/mudar', (req, res) => {
     res.json({ success: true });
 });
 
-app.get('/', (req, res) => res.send("Servidor KCM Online - Regra 1 Ativa"));
+app.get('/', (req, res) => res.send("Servidor KCM Online - Regra 1 Junção Ativa"));
 
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
