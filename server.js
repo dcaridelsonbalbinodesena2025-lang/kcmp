@@ -74,11 +74,10 @@ function iniciarMotor(cardId, ativoId, nomeAtivo) {
             m.forca = Math.min(98, Math.max(2, m.forca));
         }
 
-        // --- 1. ETAPA: ALERTA DE POSSÍVEL ENTRADA (Aos 00 segundos) ---
+        // --- 1. ETAPA: ALERTA ---
         if (segs === 0) {
             m.fechamentoAnterior = preco;
             m.aberturaVela = preco;
-            
             if (m.forca >= 70) m.sinalPendente = "CALL"; 
             else if (m.forca <= 30) m.sinalPendente = "PUT"; 
             else m.sinalPendente = null;
@@ -86,14 +85,11 @@ function iniciarMotor(cardId, ativoId, nomeAtivo) {
             if (m.sinalPendente && !m.operacaoAtiva) {
                 m.buscandoTaxa = true;
                 let hAlerta = agora.toLocaleTimeString();
-                let hPrevFim = new Date(agora.getTime() + 60000).toLocaleTimeString();
-                m.status = `ALERTA: ${m.sinalPendente}`;
-                
-                enviarTelegram(`🔍 *ALERTA: POSSÍVEL ENTRADA*\n📊 Ativo: ${m.nome}\n⚡ Direção: ${m.sinalPendente === "CALL" ? "COMPRA 🟢" : "VENDA 🔴"}\n⏰ Início: ${hAlerta}\n🏁 Término: ${hPrevFim}`, false);
+                enviarTelegram(`🔍 *ALERTA: POSSÍVEL ENTRADA*\n📊 Ativo: ${m.nome}\n⚡ Direção: ${m.sinalPendente === "CALL" ? "COMPRA 🟢" : "VENDA 🔴"}\n⏰ Horário: ${hAlerta}`, false);
             }
         }
 
-        // --- 2. ETAPA: ENTRADA CONFIRMADA (Busca de Taxa) ---
+        // --- 2. ETAPA: CONFIRMAÇÃO ---
         if (m.buscandoTaxa && !m.operacaoAtiva) {
             let diffVela = Math.abs(m.fechamentoAnterior - m.aberturaVela) || 0.0001;
             let alvo = diffVela * 0.30;
@@ -105,16 +101,13 @@ function iniciarMotor(cardId, ativoId, nomeAtivo) {
                 m.precoEntrada = preco;
                 m.tempoOp = 60;
                 m.buscandoTaxa = false;
-                m.status = "ENTRADA CONFIRMADA";
-                
-                let hConfirm = agora.toLocaleTimeString();
-                let hFimConfirm = new Date(agora.getTime() + (m.tempoOp * 1000)).toLocaleTimeString();
-                
-                enviarTelegram(`🚀 *ENTRADA CONFIRMADA*\n💎 Ativo: ${m.nome}\n📈 Ação: ${m.operacaoAtiva === "CALL" ? "COMPRA 🟢" : "VENDA 🔴"}\n⏰ Início: ${hConfirm}\n🏁 Término: ${hFimConfirm}`);
+                let hI = agora.toLocaleTimeString();
+                let hF = new Date(agora.getTime() + 60000).toLocaleTimeString();
+                enviarTelegram(`🚀 *ENTRADA CONFIRMADA*\n💎 Ativo: ${m.nome}\n📈 Ação: ${m.operacaoAtiva === "CALL" ? "COMPRA 🟢" : "VENDA 🔴"}\n⏰ Início: ${hI}\n🏁 Término: ${hF}`);
             }
         }
 
-        // --- 3. ETAPA: RESULTADO E GALE ---
+        // --- 3. ETAPA: RESULTADO COM PLACAR ---
         if (m.tempoOp > 0) {
             m.tempoOp--;
             if (m.tempoOp === 0) {
@@ -124,21 +117,27 @@ function iniciarMotor(cardId, ativoId, nomeAtivo) {
                 if (win) {
                     if (m.galeAtual === 0) statsGlobal.winDireto++; else statsGlobal.winGales++;
                     m.wins++;
-                    enviarTelegram(`✅ *GREEN NO ${m.galeAtual === 0 ? 'DIRETO' : 'GALE ' + m.galeAtual}!*\n💎 Ativo: ${m.nome}\n💰 Resultado: VITÓRIA`);
+                    
+                    // Texto do Placar atualizado para a mensagem de Green
+                    let placarAtual = `✅ *GREEN NO ${m.galeAtual === 0 ? 'DIRETO' : 'GALE ' + m.galeAtual}!*\n💎 Ativo: ${m.nome}\n\n📊 *PLACAR GERAL:*\n🟢 Wins: ${statsGlobal.winDireto + statsGlobal.winGales}\n🔴 Loss: ${statsGlobal.loss}`;
+                    
+                    enviarTelegram(placarAtual);
                     m.operacaoAtiva = null; m.galeAtual = 0; m.status = "ANALISANDO...";
                 } else if (m.galeAtual < 2) {
                     m.galeAtual++;
                     m.tempoOp = 60;
                     m.precoEntrada = preco;
-                    
-                    let hGaleI = agora.toLocaleTimeString();
-                    let hGaleF = new Date(agora.getTime() + 60000).toLocaleTimeString();
-                    
-                    enviarTelegram(`🔄 *ENTRANDO NO GALE ${m.galeAtual}*\n🌍 Ativo: ${m.nome}\n📈 Direção: ${m.operacaoAtiva === "CALL" ? "COMPRA 🟢" : "VENDA 🔴"}\n⏰ Início: ${hGaleI}\n🏁 Término: ${hGaleF}`);
+                    let hI = agora.toLocaleTimeString();
+                    let hF = new Date(agora.getTime() + 60000).toLocaleTimeString();
+                    enviarTelegram(`🔄 *ENTRANDO NO GALE ${m.galeAtual}*\n🌍 Ativo: ${m.nome}\n📈 Direção: ${m.operacaoAtiva === "CALL" ? "COMPRA 🟢" : "VENDA 🔴"}\n⏰ Início: ${hI}\n🏁 Término: ${hF}`);
                 } else {
                     statsGlobal.loss++;
                     m.loss++;
-                    enviarTelegram(`❌ *LOSS NO G2*\n💎 Ativo: ${m.nome}\n📉 Resultado: DERROTA`);
+                    
+                    // Texto do Placar atualizado para a mensagem de Loss
+                    let placarLoss = `❌ *LOSS NO G2*\n💎 Ativo: ${m.nome}\n\n📊 *PLACAR GERAL:*\n🟢 Wins: ${statsGlobal.winDireto + statsGlobal.winGales}\n🔴 Loss: ${statsGlobal.loss}`;
+                    
+                    enviarTelegram(placarLoss);
                     m.operacaoAtiva = null; m.galeAtual = 0; m.status = "ANALISANDO...";
                 }
                 statsGlobal.analises++;
