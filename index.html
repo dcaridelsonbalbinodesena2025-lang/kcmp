@@ -3,113 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>K.C.M PAINEL DE CONTROLE - V19</title>
+    <title>K.C.M CONTROL V19</title>
     <style>
-        :root { 
-            --neon-blue: #1e90ff; --neon-green: #00ff88; --neon-red: #ff3355; 
-            --gale: #f0b90b; --bg-dark: #05070a; --royal-blue: #0047AB;
-        }
-        body { background: var(--bg-dark); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; }
-        .logo { font-size: 22px; font-weight: 900; color: #fff; margin: 10px 0; }
-        .logo span { color: var(--neon-blue); font-style: italic; }
-        .painel-global { background: linear-gradient(180deg, #111418 0%, #05070a 100%); border: 2px solid var(--royal-blue); border-radius: 15px; width: 95%; max-width: 600px; padding: 15px; margin-bottom: 20px; box-shadow: 0 0 20px rgba(0,71,171,0.3); }
-        .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center; }
-        .stat-label { font-size: 9px; color: #888; text-transform: uppercase; margin-bottom: 4px; }
-        .stat-val { font-size: 18px; font-weight: bold; }
-        .grid-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; width: 100%; max-width: 600px; }
-        .card { background: #111418; border-radius: 20px; padding: 12px; border: 1px solid #1e2228; position: relative; }
-        .thermometer-wrap { width: 100%; height: 8px; background: #222; border-radius: 4px; margin: 8px 0; overflow: hidden; border: 1px solid #333; }
-        .thermometer-fill { height: 100%; width: 50%; transition: 0.5s; background: linear-gradient(90deg, #ff3355, #f0b90b, #00ff88); }
-        .status-box { width: 100%; min-height: 50px; background: #000; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid #333; padding: 4px; }
-        .status-txt { font-size: 10px; font-weight: bold; color: var(--neon-blue); text-align: center; }
-        .price-val { font-family: monospace; color: var(--gale); text-align: center; font-size: 14px; margin-top: 5px; }
-        .servidor-status { font-size: 10px; margin-bottom: 10px; padding: 5px 15px; border-radius: 20px; background: #222; }
-        .online { color: var(--neon-green); border: 1px solid var(--neon-green); }
-        .offline { color: var(--neon-red); border: 1px solid var(--neon-red); }
+        :root { --neon-blue: #1e90ff; --neon-green: #00ff88; --neon-red: #ff3355; --bg-dark: #05070a; }
+        body { background: var(--bg-dark); color: white; font-family: sans-serif; padding: 10px; display: flex; flex-direction: column; align-items: center; }
+        .grid-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; width: 100%; max-width: 600px; }
+        .card { background: #111418; border: 1px solid #333; border-radius: 15px; padding: 10px; text-align: center; }
+        .thermometer { width: 100%; height: 8px; background: #222; border-radius: 4px; margin: 5px 0; }
+        .fill { height: 100%; background: var(--neon-green); transition: 0.5s; width: 50%; }
+        .status { font-size: 10px; color: var(--neon-blue); height: 30px; }
+        .price { font-family: monospace; color: #f0b90b; }
+        select { width: 100%; background: #000; color: #fff; border: 1px solid #444; padding: 5px; margin-top: 5px; font-size: 10px; }
+        .off-card { opacity: 0.5; }
     </style>
 </head>
 <body>
 
-    <div class="logo">K.C<span>📈</span>M CONTROL V19</div>
-    
-    <div id="srv-indicator" class="servidor-status offline">CONECTANDO AO SERVIDOR...</div>
-
-    <div class="painel-global">
-        <div class="stats-row">
-            <div><span class="stat-label">Monitorados</span><span class="stat-val" id="g-analises">0</span></div>
-            <div><span class="stat-label">Wins Hoje</span><span class="stat-val" style="color:var(--neon-green)" id="g-wins">0</span></div>
-            <div><span class="stat-label">Loss Hoje</span><span class="stat-val" style="color:var(--neon-red)" id="g-loss">0</span></div>
-            <div><span class="stat-label">Uptime</span><span class="stat-val" style="font-size: 12px;">24/7</span></div>
-        </div>
-    </div>
-
-    <div class="grid-container" id="grid">
-        </div>
+    <h3>K.C.M MULTI-CONTROL</h3>
+    <div id="grid" class="grid-container"></div>
 
 <script>
-    const URL_SERVIDOR = "https://kcmp-riwu.onrender.com";
+    const URL_SRV = "https://kcmp-riwu.onrender.com";
+    const LISTA = `
+        <option value="OFF" style="color:red">🔴 DESATIVAR CARD</option>
+        <optgroup label="🌍 FOREX">
+            <option value="frxEURUSD">EUR/USD</option>
+            <option value="frxGBPUSD">GBP/USD</option>
+            <option value="frxUSDJPY">USD/JPY</option>
+        </optgroup>
+        <optgroup label="🔥 SINTÉTICOS">
+            <option value="1HZ10V">Volatility 10 (1s)</option>
+            <option value="1HZ100V">Volatility 100 (1s)</option>
+            <option value="R_100">Volatility 100</option>
+        </optgroup>
+        <optgroup label="₿ CRIPTO">
+            <option value="cryBTCUSD">BITCOIN</option>
+        </optgroup>`;
 
-    async function atualizarPainel() {
-        try {
-            const response = await fetch(`${URL_SERVIDOR}/status`);
-            const dados = await response.json();
-            
-            const grid = document.getElementById('grid');
-            const indicador = document.getElementById('srv-indicator');
-            
-            // Atualiza indicador de conexão
-            indicador.innerText = "SERVIDOR ONLINE (OPERANDO 24H)";
-            indicador.className = "servidor-status online";
-
-            // Se o grid estiver vazio, cria os cards
-            if (grid.innerHTML.trim() === "") {
-                dados.forEach((ativo, i) => {
-                    grid.innerHTML += `
-                        <div class="card" id="card-${ativo.id}">
-                            <div class="stat-label">${ativo.nome}</div>
-                            <div class="thermometer-wrap">
-                                <div class="thermometer-fill" id="therm-${ativo.id}" style="width: ${ativo.forca}%"></div>
-                            </div>
-                            <div class="status-box">
-                                <div class="status-txt" id="status-${ativo.id}">${ativo.status}</div>
-                            </div>
-                            <div class="price-val" id="price-${ativo.id}">${ativo.preco}</div>
-                        </div>`;
-                });
-            } else {
-                // Se já existirem, apenas atualiza os valores
-                let totalWins = 0;
-                let totalLoss = 0;
-
-                dados.forEach(ativo => {
-                    const elStatus = document.getElementById(`status-${ativo.id}`);
-                    const elPrice = document.getElementById(`price-${ativo.id}`);
-                    const elTherm = document.getElementById(`therm-${ativo.id}`);
-
-                    if (elStatus) elStatus.innerHTML = ativo.status;
-                    if (elPrice) elPrice.innerText = ativo.preco;
-                    if (elTherm) elTherm.style.width = ativo.forca + "%";
-                    
-                    totalWins += (ativo.wins || 0);
-                    totalLoss += (ativo.loss || 0);
-                });
-
-                document.getElementById('g-analises').innerText = dados.length;
-                document.getElementById('g-wins').innerText = totalWins;
-                document.getElementById('g-loss').innerText = totalLoss;
-            }
-
-        } catch (error) {
-            console.error("Erro ao conectar:", error);
-            const indicador = document.getElementById('srv-indicator');
-            indicador.innerText = "SERVIDOR ACORDANDO... AGUARDE";
-            indicador.className = "servidor-status offline";
-        }
+    // Criar 6 cards
+    for(let i=1; i<=6; i++) {
+        document.getElementById('grid').innerHTML += `
+            <div class="card" id="card-div-card${i}">
+                <div style="font-size:9px">MONITOR ${i}</div>
+                <div class="thermometer"><div class="fill" id="fill-card${i}"></div></div>
+                <div class="status" id="status-card${i}">OFFLINE</div>
+                <div class="price" id="price-card${i}">0.0000</div>
+                <select id="sel-card${i}" onchange="enviarComando('card${i}')">${LISTA}</select>
+            </div>`;
     }
 
-    // Sincroniza a cada 1 segundo
-    setInterval(atualizarPainel, 1000);
-    atualizarPainel();
+    async function enviarComando(cardId) {
+        const sel = document.getElementById('sel-'+cardId);
+        const ativoId = sel.value;
+        const nomeAtivo = sel.options[sel.selectedIndex].text;
+        
+        await fetch(`${URL_SRV}/mudar`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ cardId, ativoId, nomeAtivo })
+        });
+    }
+
+    async function sync() {
+        try {
+            const res = await fetch(`${URL_SRV}/status`);
+            const data = await res.json();
+            data.ativos.forEach(a => {
+                const card = document.getElementById('card-div-'+a.cardId);
+                if (a.status === "DESATIVADO") {
+                    card.classList.add('off-card');
+                } else {
+                    card.classList.remove('off-card');
+                }
+                document.getElementById('status-'+a.cardId).innerText = a.status;
+                document.getElementById('price-'+a.cardId).innerText = a.preco;
+                document.getElementById('fill-'+a.cardId).style.width = a.forca + "%";
+            });
+        } catch (e) {}
+    }
+
+    setInterval(sync, 1000);
 </script>
 </body>
 </html>
