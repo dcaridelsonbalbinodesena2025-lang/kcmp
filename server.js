@@ -14,9 +14,19 @@ const TG_TOKEN = "8427077212:AAEiL_3_D_-fukuaR95V3FqoYYyHvdCHmEI";
 const TG_CHAT_ID = "-1003355965894"; 
 const LINK_CORRETORA = "https://track.deriv.com/_S_W1N_"; 
 
+// Função para pegar a hora de Brasília formatada
+function getHoraBrasilia(data = new Date()) {
+    return data.toLocaleTimeString('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+}
+
 let statsGlobal = { winDireto: 0, winGales: 0, loss: 0, analises: 0 };
 let motores = {}; 
-let ultimasAnalisesRelatadas = -1; // Controle da Regra 1 para evitar spam
+let ultimasAnalisesRelatadas = -1;
 
 function enviarTelegram(msg, comBotao = true) {
     let payload = { chat_id: TG_CHAT_ID, text: msg, parse_mode: "Markdown" };
@@ -89,7 +99,7 @@ function iniciarMotor(cardId, ativoId, nomeAtivo) {
 
             if (m.sinalPendente && !m.operacaoAtiva) {
                 m.buscandoTaxa = true;
-                let hAlerta = agora.toLocaleTimeString();
+                let hAlerta = getHoraBrasilia();
                 let emoji = m.sinalPendente === "CALL" ? "COMPRA 🟢" : "VENDA 🔴";
                 enviarTelegram(`🔍 *ALERTA: POSSÍVEL ENTRADA*\n📊 Ativo: ${m.nome}\n⚡ Direção: ${emoji}\n⏰ Horário: ${hAlerta}`, false);
             }
@@ -108,8 +118,8 @@ function iniciarMotor(cardId, ativoId, nomeAtivo) {
                 m.precoEntrada = preco;
                 m.tempoOp = 60;
                 m.buscandoTaxa = false;
-                let hI = agora.toLocaleTimeString();
-                let hF = new Date(agora.getTime() + 60000).toLocaleTimeString();
+                let hI = getHoraBrasilia();
+                let hF = getHoraBrasilia(new Date(agora.getTime() + 60000));
                 enviarTelegram(`🚀 *ENTRADA CONFIRMADA*\n💎 Ativo: ${m.nome}\n📈 Ação: ${m.operacaoAtiva === "CALL" ? "COMPRA 🟢" : "VENDA 🔴"}\n⏰ Início: ${hI}\n🏁 Término: ${hF}`);
             }
         }
@@ -130,8 +140,8 @@ function iniciarMotor(cardId, ativoId, nomeAtivo) {
                     m.galeAtual++;
                     m.tempoOp = 60;
                     m.precoEntrada = preco;
-                    let hI = agora.toLocaleTimeString();
-                    let hF = new Date(agora.getTime() + 60000).toLocaleTimeString();
+                    let hI = getHoraBrasilia();
+                    let hF = getHoraBrasilia(new Date(agora.getTime() + 60000));
                     enviarTelegram(`🔄 *RECUPERAÇÃO (GALE ${m.galeAtual})*\nAtivo: ${m.nome}\n⏰ Início: ${hI}\n🏁 Término: ${hF}`);
                 } else {
                     statsGlobal.loss++;
@@ -148,12 +158,8 @@ function iniciarMotor(cardId, ativoId, nomeAtivo) {
     motores[cardId] = m;
 }
 
-// RELATÓRIO DE PERFORMANCE (TRAVA DE SILÊNCIO E 5 MINUTOS)
 function enviarRelatorioPerformance() {
-    // REGRA 1: Só envia se o número de análises aumentou desde o último relatório
-    if (statsGlobal.analises === ultimasAnalisesRelatadas) {
-        return; 
-    }
+    if (statsGlobal.analises === ultimasAnalisesRelatadas) return; 
 
     let listaRanking = Object.values(motores)
         .filter(m => m.nome !== "OFF" && m.nome !== "DESATIVADO")
@@ -170,9 +176,14 @@ function enviarRelatorioPerformance() {
         rankingTexto += `${index + 1}º ${item.nome}: ${item.ef}%\n`;
     });
 
-    let eficienciaGeral = statsGlobal.analises > 0 
+    // CÁLCULOS DE EFICIÊNCIA DUPLA
+    let efDireta = statsGlobal.analises > 0 
+        ? ((statsGlobal.winDireto / statsGlobal.analises) * 100).toFixed(1) 
+        : "0.0";
+        
+    let efComGale = statsGlobal.analises > 0 
         ? (((statsGlobal.winDireto + statsGlobal.winGales) / statsGlobal.analises) * 100).toFixed(1) 
-        : "100.0";
+        : "0.0";
 
     const mensagemRelatorio = 
 `📊 *RELATÓRIO DE PERFORMANCE (REGRA 1)*
@@ -186,13 +197,15 @@ function enviarRelatorioPerformance() {
 🏆 *RANKING DOS ATIVOS:*
 ${rankingTexto || "Sem dados suficientes"}
 
-🔥 *EFICIÊNCIA ATUAL: ${eficienciaGeral}%*`;
+🎯 *ASSERTIVIDADE:*
+✅ Sem Gale (Direto): ${efDireta}%
+🔥 Com Gale (Final): ${efComGale}%`;
 
     enviarTelegram(mensagemRelatorio, false);
     ultimasAnalisesRelatadas = statsGlobal.analises;
 }
 
-setInterval(enviarRelatorioPerformance, 300000); // 5 Minutos
+setInterval(enviarRelatorioPerformance, 300000);
 
 app.get('/status', (req, res) => {
     let ativosStatus = Object.keys(motores).map(id => ({
